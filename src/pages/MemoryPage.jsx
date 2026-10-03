@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSimulator } from "../context/SimulatorContext";
-import { toHex } from "../engine/constants";
+import { toHex, formatAddress } from "../engine/constants";
 import ActionBar from "../components/ActionBar";
 import Icon from "../components/Icons";
 
@@ -28,7 +28,7 @@ export default function MemoryPage() {
   const rows = memory.slice(start, start + PAGE_SIZE);
 
   const lastAccess = useMemo(() => {
-    const entry = [...log].reverse().find(l => l.changed !== "-" && l.changed.startsWith("M["));
+    const entry = [...log].reverse().find(item => /M\[\d+\]/.test(item.changed));
     if (!entry) return null;
     const addr = parseInt(entry.changed.match(/M\[(\d+)\]/)?.[1] ?? "-1", 10);
     return addr >= 0 ? { addr: addr & 0xff, type: "WRITE" } : null;
@@ -50,8 +50,8 @@ export default function MemoryPage() {
         <div className="panel-title">
           <p className="console-label">Main Memory Inspector</p>
           <div className="mem-pill-row">
-            <span className="mem-pill pc">PC: 0x{addrHex(registers.PC & 0xff)}</span>
-            <span className="mem-pill mar">MAR: 0x{addrHex(registers.MAR & 0xff)}</span>
+            <span className="mem-pill pc">Instruction PC: {formatAddress(registers.PC)}</span>
+            <span className="mem-pill mar">MAR: {formatAddress(registers.MAR)}</span>
           </div>
         </div>
 
@@ -66,8 +66,8 @@ export default function MemoryPage() {
             <tbody>
               {rows.map((byte, i) => {
                 const addr = start + i;
-                const isMar = (registers.MAR & 0xff) === addr;
-                const isPc = (registers.PC & 0xff) === addr;
+                const isMar = registers.MAR === addr;
+                const isPc = false;
                 const isLastWrite = lastAccess && lastAccess.addr === addr;
                 return (
                   <tr key={addr} className={isPc ? "row-pc" : isMar ? "row-mar" : byte !== 0 ? "nonzero" : ""}>
@@ -126,7 +126,6 @@ export default function MemoryPage() {
             <button className="primary" onClick={jump}>Jump</button>
           </div>
           <div className="button-row">
-            <button onClick={() => goTo(registers.PC)}>Go to PC</button>
             <button onClick={() => goTo(registers.MAR)}>Go to MAR</button>
           </div>
         </div>

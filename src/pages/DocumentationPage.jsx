@@ -1,41 +1,20 @@
-const CONTENTS = [
-  "Getting Started",
-  "CPU Architecture",
-  "Fetch-Decode-Execute",
-  "Instruction Set",
-  "ALU (Arithmetic Logic Unit)",
-  "Registers",
-  "Memory",
-  "Cache Hierarchy",
-  "Performance Analysis",
-  "Running a Program",
-  "Controls & Interface"
-];
-
 const INSTRUCTIONS = [
-  ["0001", "LOAD", "LOAD R1, [M]", "Load value from memory M into register R1"],
-  ["0010", "STORE", "STORE R1, [M]", "Store value from register R1 into memory M"],
-  ["0011", "MOV", "MOV R1, R2", "Move value from R2 to R1"],
-  ["0100", "ADD", "ADD R1, R2, R3", "R1 ← R2 + R3"],
-  ["0101", "SUB", "SUB R1, R2, R3", "R1 ← R2 − R3"],
-  ["0110", "AND", "AND R1, R2, R3", "Bitwise AND operation"],
-  ["0111", "OR", "OR R1, R2, R3", "Bitwise OR operation"]
+  ["0x10", "LOAD", "LOAD R1, 100", "Load one byte from data memory"],
+  ["0x11", "STORE", "STORE R1, 100", "Store one byte through the L1 cache"],
+  ["0x20", "MOV", "MOV R1, R2 | #5", "Move a register or immediate value"],
+  ["0x30", "ADD", "ADD R1, R2, R3", "8-bit addition; update Z/C/V/N"],
+  ["0x31", "SUB", "SUB R1, R2, R3", "8-bit subtraction; update Z/C/V/N"],
+  ["0x32", "AND", "AND R1, R2, R3", "Bitwise AND; update Z/C/V/N"],
+  ["0x33", "OR", "OR R1, R2, R3", "Bitwise OR; update Z/C/V/N"],
+  ["0x34", "XOR", "XOR R1, R2, R3", "Bitwise XOR; update Z/C/V/N"],
+  ["0x35", "NOT", "NOT R1, R2", "Bitwise complement; update Z/C/V/N"],
+  ["0x00", "NOP", "NOP", "No operation"],
+  ["0xFF", "HALT", "HALT", "Stop execution"]
 ];
 
 export default function DocumentationPage() {
   return (
     <section className="documentation-page">
-      <aside className="docs-contents">
-        <p>Contents</p>
-        <nav>
-          {CONTENTS.map((item, index) => (
-            <a key={item} className={index === 0 ? "active" : ""} href={`#${item.toLowerCase().replace(/[^a-z]+/g, "-")}`}>
-              {item}
-            </a>
-          ))}
-        </nav>
-      </aside>
-
       <article className="docs-article">
         <header className="docs-heading" id="getting-started">
           <span>Documentation</span>
@@ -61,8 +40,10 @@ export default function DocumentationPage() {
         <section className="docs-section" id="instruction-set">
           <h2>Instruction Set Architecture (ISA)</h2>
           <p>
-            ArchSim implements a simplified RISC-like instruction set. Instructions are 16-bit wide,
-            with opcodes occupying the most significant 4 bits.
+            ArchSim implements a simplified 8-bit RISC-like CPU with 32-bit instruction words.
+            Each word contains an 8-bit opcode and up to three 8-bit operand fields. Instructions
+            use a separate word-addressed space beginning at 0x00400000, while data memory contains
+            256 byte locations from 0 through 255.
           </p>
           <div className="docs-table-wrap">
             <table className="docs-table">

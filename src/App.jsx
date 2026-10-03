@@ -3,26 +3,22 @@ import { SimulatorProvider } from "./context/SimulatorContext";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import Home from "./pages/Home";
-import CpuSimulatorPage from "./pages/CpuSimulatorPage";
 import AluSimulatorPage from "./pages/AluSimulatorPage";
 import RegistersPage from "./pages/RegistersPage";
 import MemoryPage from "./pages/MemoryPage";
 import CacheSimulatorPage from "./pages/CacheSimulatorPage";
 import InstructionExecutionPage from "./pages/InstructionExecutionPage";
-import PerformanceAnalysisPage from "./pages/PerformanceAnalysisPage";
 import AboutPage from "./pages/AboutPage";
 import DocumentationPage from "./pages/DocumentationPage";
 import "./index.css";
 
 const PAGES = {
   "Home": Home,
-  "CPU Simulator": CpuSimulatorPage,
   "ALU Simulator": AluSimulatorPage,
   "Registers": RegistersPage,
   "Memory": MemoryPage,
   "Cache Simulator": CacheSimulatorPage,
   "Instruction Execution": InstructionExecutionPage,
-  "Performance Analysis": PerformanceAnalysisPage,
   "Documentation": DocumentationPage,
   "About": AboutPage
 };

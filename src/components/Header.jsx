@@ -8,7 +8,7 @@ export default function Header({ activePage }) {
     <header className="header">
       <div>
         <div className="breadcrumb">Home / {activePage}</div>
-        <h1>{activePage === "Performance Analysis" ? activePage : "Architecture Simulator"}</h1>
+        <h1>Architecture Simulator</h1>
       </div>
 
       <div className="header-actions">

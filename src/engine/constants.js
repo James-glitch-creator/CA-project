@@ -1,19 +1,22 @@
 export const REGISTER_NAMES = ["R0", "R1", "R2", "R3"];
 export const MEMORY_SIZE = 256;
 export const CLOCK_HZ = 1_000_000_000; // assumed 1 GHz clock for MIPS/exec-time math
+export const INSTR_BASE_ADDR = 0x00400000;
+export const INSTR_BYTES = 4;
 
 export const CYCLE_COST = {
   FETCH: 1,
   DECODE: 1,
   EXECUTE_ALU: 1,
-  EXECUTE_MEM: 2, // LOAD / STORE hit main memory, costs one extra cycle
+  EXECUTE_MEM_HIT: 2,
+  EXECUTE_MEM_MISS: 6,
   EXECUTE_CTRL: 1
 };
 
 export const SAMPLE_PROGRAM = [
   "LOAD R1, 100",
   "LOAD R2, 101",
-  "ADD R1, R2",
+  "ADD R3, R1, R2",
   "STORE R3, 102",
   "HALT"
 ].join("\n");
@@ -34,7 +37,7 @@ export function createInitialMemory() {
 }
 
 export function createInitialRegisters() {
-  return { R0: 0, R1: 0, R2: 0, R3: 0, PC: 0, IR: 0, MAR: 0, MDR: 0 };
+  return { R0: 0, R1: 0, R2: 0, R3: 0, PC: INSTR_BASE_ADDR, IR: 0, MAR: 0, MDR: 0 };
 }
 
 export function toHex(value, digits = 2) {
@@ -46,9 +49,17 @@ export function toHex(value, digits = 2) {
 // +4 per instruction) purely for display — the engine itself indexes the
 // parsed program array by position, this just formats that index like a
 // real text-segment address so PC/IR/MAR and the memory listing agree.
-export const INSTR_BASE_ADDR = 0x00400000;
-
 export function formatInstrAddr(index) {
-  const addr = (INSTR_BASE_ADDR + (index ?? 0) * 4) >>> 0;
-  return "0x" + addr.toString(16).toUpperCase().padStart(8, "0");
+  return formatAddress(INSTR_BASE_ADDR + (index ?? 0) * INSTR_BYTES);
+}
+
+export function formatAddress(address, digits = 8) {
+  const addr = Number(address) >>> 0;
+  return "0x" + addr.toString(16).toUpperCase().padStart(digits, "0");
+}
+
+export function instructionIndex(address) {
+  const offset = Number(address) - INSTR_BASE_ADDR;
+  if (!Number.isInteger(offset) || offset < 0 || offset % INSTR_BYTES !== 0) return -1;
+  return offset / INSTR_BYTES;
 }

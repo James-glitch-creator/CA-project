@@ -987,19 +987,12 @@ tr.invalid-row td {
 
 .documentation-page {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
   color: #d7d9db;
   background: #101213;
 }
 
-.docs-contents {
-  padding: 34px 22px;
-  border-right: 1px solid #2b2d2f;
-  background: #121415;
-}
-
-.docs-contents > p,
 .docs-heading > span {
   margin: 0 0 18px;
   color: #7f8589;
@@ -1007,23 +1000,6 @@ tr.invalid-row td {
   font-weight: 700;
   letter-spacing: .12em;
   text-transform: uppercase;
-}
-
-.docs-contents nav {
-  display: flex;
-  flex-direction: column;
-  gap: 13px;
-}
-
-.docs-contents a {
-  color: #aeb2b5;
-  font-size: 14px;
-  text-decoration: none;
-}
-
-.docs-contents a:hover,
-.docs-contents a.active {
-  color: #f4f6f7;
 }
 
 .docs-article {
@@ -1139,14 +1115,6 @@ tr.invalid-row td {
 }
 
 @media (max-width: 850px) {
-  .documentation-page {
-    grid-template-columns: 1fr;
-  }
-
-  .docs-contents {
-    display: none;
-  }
-
   .docs-article {
     padding: 32px 24px 60px;
   }

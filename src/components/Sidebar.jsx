@@ -2,13 +2,11 @@ import Icon from "./Icons";
 
 const MENU = [
   ["home", "Home"],
-  ["cpu", "CPU Simulator"],
   ["alu", "ALU Simulator"],
   ["registers", "Registers"],
   ["memory", "Memory"],
   ["cache", "Cache Simulator"],
   ["instructions", "Instruction Execution"],
-  ["performance", "Performance Analysis"],
   ["documentation", "Documentation"],
   ["info", "About"]
 ];

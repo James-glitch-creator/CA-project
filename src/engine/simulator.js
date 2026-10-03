@@ -1,5 +1,7 @@
-import { CLOCK_HZ, CYCLE_COST, createInitialMemory, createInitialRegisters } from "./constants";
-import { parseProgram, executeInstruction, executeCycles } from "./instructions";
+import {
+  CLOCK_HZ, CYCLE_COST, INSTR_BYTES, createInitialMemory, createInitialRegisters, instructionIndex
+} from "./constants.js";
+import { parseProgram, executeInstruction, encodeInstruction } from "./instructions.js";
 
 export function createSimulatorState(programText) {
   let program = [];
@@ -15,9 +17,14 @@ export function createSimulatorState(programText) {
     program,
     registers: createInitialRegisters(),
     memory: createInitialMemory(),
-    phase: "idle", // idle | fetch | decode | execute | halted
+    phase: "fetch", // fetch | decode | execute | halted
     activeOp: null,
     fetchedIndex: null,
+    hasFetched: false,
+    mdrKind: null,
+    flags: { zero: false, carry: false, overflow: false, negative: false },
+    lastAlu: null,
+    lastMemoryAccess: null,
     cycles: 0,
     instructionsExecuted: 0,
     log: [],
@@ -27,7 +34,7 @@ export function createSimulatorState(programText) {
 }
 
 // Advances the CPU by exactly one micro-step (one phase). Pure: returns a new state object.
-export function stepSimulator(state) {
+export function stepSimulator(state, options = {}) {
   if (state.phase === "halted" || state.status.type === "error") return state;
 
   if (state.phase === "idle") {
@@ -39,17 +46,25 @@ export function stepSimulator(state) {
 
   if (state.phase === "fetch") {
     const pc = state.registers.PC;
-    if (pc >= state.program.length) {
-      return { ...state, phase: "halted", status: { type: "success", message: "Execution completed successfully." } };
+    const index = instructionIndex(pc);
+    if (index === state.program.length) {
+      return { ...state, phase: "halted", running: false, status: { type: "success", message: "Execution completed successfully." } };
     }
-    const instr = state.program[pc];
-    const registers = { ...state.registers, MAR: pc, IR: instr.raw, MDR: pc, PC: pc + 1 };
+    if (index < 0 || index > state.program.length) {
+      return { ...state, phase: "halted", running: false, status: { type: "error", message: `Invalid PC address 0x${pc.toString(16).toUpperCase()}.` } };
+    }
+    const instr = state.program[index];
+    const instructionWord = encodeInstruction(instr);
+    const registers = { ...state.registers, MAR: pc, IR: instructionWord, MDR: instructionWord, PC: pc + INSTR_BYTES };
     return {
       ...state,
       registers,
       phase: "decode",
       activeOp: instr.op,
-      fetchedIndex: pc,
+      fetchedIndex: index,
+      hasFetched: true,
+      mdrKind: "instruction",
+      lastMemoryAccess: null,
       cycles: state.cycles + CYCLE_COST.FETCH,
       status: { type: "info", message: `Fetch: PC=${pc} → IR = "${instr.raw}"` }
     };
@@ -69,35 +84,40 @@ export function stepSimulator(state) {
   const instr = state.program[state.fetchedIndex];
   const registers = { ...state.registers };
   const memory = [...state.memory];
-  const { details, changed } = executeInstruction(instr, registers, memory);
+  const result = executeInstruction(instr, registers, memory, { memoryValue: options.memoryValue });
+  const { details, changed } = result;
+  const executeCost = instr.op === "LOAD" || instr.op === "STORE"
+    ? options.cacheOutcome === "Hit" ? CYCLE_COST.EXECUTE_MEM_HIT : CYCLE_COST.EXECUTE_MEM_MISS
+    : CYCLE_COST.EXECUTE_ALU;
 
   const logEntry = {
     step: state.instructionsExecuted + 1,
     pc: state.fetchedIndex,
-    cycles: executeCycles(instr.op),
+    cycles: CYCLE_COST.FETCH + CYCLE_COST.DECODE + executeCost,
     instruction: instr.raw,
     details,
     changed: changed.join(", ") || "-"
   };
 
   const halted = instr.op === "HALT";
-  const nextHasMore = registers.PC < state.program.length;
-
   return {
     ...state,
     registers,
     memory,
+    flags: result.flags ?? state.flags,
+    lastAlu: result.alu,
+    lastMemoryAccess: result.memoryAccess ? { ...result.memoryAccess, outcome: options.cacheOutcome ?? null } : null,
+    mdrKind: result.memoryAccess ? "data" : state.mdrKind,
     phase: halted ? "halted" : "fetch",
-    activeOp: instr.op,
-    cycles: state.cycles + executeCycles(instr.op),
+    activeOp: halted ? instr.op : null,
+    fetchedIndex: halted ? state.fetchedIndex : null,
+    cycles: state.cycles + executeCost,
     instructionsExecuted: state.instructionsExecuted + 1,
     log: [...state.log, logEntry],
     running: halted ? false : state.running,
     status: halted
       ? { type: "success", message: "Execution completed successfully." }
-      : nextHasMore
-        ? { type: "info", message: `Execute: ${details}` }
-        : { type: "info", message: `Execute: ${details}` }
+      : { type: "info", message: `Execute: ${details}` }
   };
 }
 

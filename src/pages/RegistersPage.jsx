@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useSimulator } from "../context/SimulatorContext";
-import { toHex } from "../engine/constants";
+import { toHex, formatAddress } from "../engine/constants";
 import { deriveDatapath } from "../engine/datapath";
 import ActionBar from "../components/ActionBar";
 import Icon from "../components/Icons";
@@ -16,8 +16,8 @@ const META = {
   MDR: { type: "MEM", alias: "Memory Data" }
 };
 
-function toBin16(value) {
-  return (value & 0xffff).toString(2).padStart(16, "0");
+function toBinary(value, width = 16) {
+  return (Number(value) >>> 0).toString(2).padStart(width, "0");
 }
 
 export default function RegistersPage() {
@@ -64,28 +64,28 @@ export default function RegistersPage() {
             </div>
             <p className="reg-field"><span>Hex</span><b className="mono-cell">0x{toHex(registers[name], 4)}</b></p>
             <p className="reg-field"><span>Dec</span><b>{registers[name]}</b></p>
-            <p className="reg-field"><span>Bin</span><b className="mono-cell small">{toBin16(registers[name])}</b></p>
+            <p className="reg-field"><span>Bin</span><b className="mono-cell small">{toBinary(registers[name])}</b></p>
           </div>
         ))}
 
         <div className="panel reg-card">
           <span className="reg-kind">CTRL</span>
           <div className="reg-card-title"><h3>PC</h3><span className="muted-cell">Program Counter</span></div>
-          <p className="reg-field"><span>Hex</span><b className="mono-cell">0x{registers.PC.toString(16).toUpperCase().padStart(4, "0")}</b></p>
+          <p className="reg-field"><span>Hex</span><b className="mono-cell">{formatAddress(registers.PC)}</b></p>
           <p className="reg-field"><span>Dec</span><b>{registers.PC}</b></p>
         </div>
 
         <div className="panel reg-card">
           <span className="reg-kind">CTRL</span>
           <div className="reg-card-title"><h3>IR</h3><span className="muted-cell">Instruction Reg</span></div>
-          <p className="reg-field"><span>Hex</span><b className="mono-cell">{typeof registers.IR === "number" ? "0x" + registers.IR.toString(16).toUpperCase().padStart(4, "0") : "-"}</b></p>
-          <p className="reg-field"><span>Opc</span><b className="mono-cell">{typeof registers.IR === "string" ? registers.IR : "-"}</b></p>
+          <p className="reg-field"><span>Hex</span><b className="mono-cell">{cpu.hasFetched ? formatAddress(registers.IR) : "-"}</b></p>
+          <p className="reg-field"><span>Asm</span><b className="mono-cell">{cpu.fetchedIndex == null ? "-" : cpu.program[cpu.fetchedIndex]?.raw}</b></p>
         </div>
 
         <div className="panel reg-card">
           <span className="reg-kind">MEM</span>
           <div className="reg-card-title"><h3>MAR</h3><span className="muted-cell">Memory Address</span></div>
-          <p className="reg-field"><span>Hex</span><b className="mono-cell">0x{registers.MAR.toString(16).toUpperCase().padStart(4, "0")}</b></p>
+          <p className="reg-field"><span>Hex</span><b className="mono-cell">{formatAddress(registers.MAR)}</b></p>
           <p className="reg-field"><span>Bus</span><b className="bus-tag">{busLabel}</b></p>
         </div>
 
@@ -114,7 +114,7 @@ export default function RegistersPage() {
                     <td>{META[name]?.type ?? "-"}</td>
                     <td className="mono-cell">{isText ? "-" : "0x" + value.toString(16).toUpperCase().padStart(4, "0")}</td>
                     <td className={isText ? "mono-cell" : ""}>{value}</td>
-                    <td className="mono-cell muted-cell">{isText ? "-" : toBin16(value)}</td>
+                    <td className="mono-cell muted-cell">{isText ? "-" : toBinary(value, name === "PC" || name === "MAR" ? 32 : 16)}</td>
                     <td className={cyc === now && now > 0 ? "trace-now" : "muted-cell"}>
                       Cycle {cyc}{cyc === now && now > 0 ? " (Now)" : ""}
                     </td>

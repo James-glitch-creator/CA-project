@@ -1,7 +1,8 @@
-import { REGISTER_NAMES } from "./constants";
+import { aluCompute } from "./alu.js";
 
 const OPS_2_OR_3 = ["ADD", "SUB", "AND", "OR", "XOR"];
 const KNOWN_OPS = ["LOAD", "STORE", "MOV", "NOT", "NOP", "HALT", ...OPS_2_OR_3];
+const OPCODES = { NOP: 0x00, LOAD: 0x10, STORE: 0x11, MOV: 0x20, ADD: 0x30, SUB: 0x31, AND: 0x32, OR: 0x33, XOR: 0x34, NOT: 0x35, HALT: 0xff };
 
 function parseOperand(token) {
   const t = token.trim();
@@ -10,6 +11,14 @@ function parseOperand(token) {
   if (/^0x[0-9a-f]+$/i.test(t)) return { type: "addr", value: parseInt(t, 16) };
   if (/^-?\d+$/.test(t)) return { type: "addr", value: parseInt(t, 10) };
   throw new Error(`Invalid operand "${token}"`);
+}
+
+function isValueOperand(operand) {
+  return operand && (operand.type === "reg" || operand.type === "imm");
+}
+
+function validDataAddress(operand) {
+  return operand?.type === "addr" && operand.value >= 0 && operand.value < 256;
 }
 
 // Parses free-form assembly text into a list of { raw, line, op, args } instructions.
@@ -31,7 +40,10 @@ export function parseProgram(text) {
     }
 
     const argsStr = match[2].trim();
-    const args = argsStr.length ? argsStr.split(",").map(a => a.trim()).filter(Boolean) : [];
+    if (argsStr.endsWith(",")) throw new Error(`Line ${idx + 1}: trailing comma`);
+    const rawArgs = argsStr.length ? argsStr.split(",").map(a => a.trim()) : [];
+    if (rawArgs.some(arg => arg.length === 0)) throw new Error(`Line ${idx + 1}: missing operand`);
+    const args = rawArgs;
 
     let operands;
     try {
@@ -41,24 +53,32 @@ export function parseProgram(text) {
     }
 
     if (op === "HALT" || op === "NOP") {
-      // no operands required
+      if (operands.length !== 0) throw new Error(`Line ${idx + 1}: ${op} takes no operands`);
     } else if (op === "LOAD" || op === "STORE") {
-      if (operands.length !== 2 || operands[0].type !== "reg") {
+      if (operands.length !== 2 || operands[0].type !== "reg" || !validDataAddress(operands[1])) {
         throw new Error(`Line ${idx + 1}: ${op} needs "Rd, address"`);
       }
     } else if (op === "MOV") {
-      if (operands.length !== 2 || operands[0].type !== "reg") {
+      if (operands.length !== 2 || operands[0].type !== "reg" || !isValueOperand(operands[1])) {
         throw new Error(`Line ${idx + 1}: MOV needs "Rd, Rs" or "Rd, #imm"`);
       }
     } else if (op === "NOT") {
-      if (operands.length < 1 || operands[0].type !== "reg") {
+      if ((operands.length !== 1 && operands.length !== 2) ||
+          operands[0].type !== "reg" || (operands[1] && operands[1].type !== "reg")) {
         throw new Error(`Line ${idx + 1}: NOT needs "Rd" or "Rd, Rs"`);
       }
     } else if (OPS_2_OR_3.includes(op)) {
-      if ((operands.length !== 2 && operands.length !== 3) || operands[0].type !== "reg") {
-        throw new Error(`Line ${idx + 1}: ${op} needs "Rd, Rs" or "Rd, Rs1, Rs2"`);
+      if ((operands.length !== 2 && operands.length !== 3) || operands[0].type !== "reg" ||
+          operands.slice(1).some(operand => !isValueOperand(operand))) {
+        throw new Error(`Line ${idx + 1}: ${op} needs register or #immediate sources`);
       }
     }
+
+    operands.filter(operand => operand.type === "imm").forEach(operand => {
+      if (operand.value < -128 || operand.value > 255) {
+        throw new Error(`Line ${idx + 1}: immediate must be between -128 and 255`);
+      }
+    });
 
     return { raw: l, line: idx + 1, op, args: operands };
   });
@@ -69,38 +89,36 @@ function readValue(operand, registers) {
   return operand.value & 0xff;
 }
 
-function bitwise(op, a, b) {
-  switch (op) {
-    case "ADD": return (a + b) & 0xff;
-    case "SUB": return (a - b) & 0xff;
-    case "AND": return a & b;
-    case "OR": return a | b;
-    case "XOR": return a ^ b;
-    default: return 0;
-  }
-}
-
 // Executes one decoded instruction against registers/memory (mutating clones passed in).
 // Returns a human-readable detail string and the list of changed register/memory names.
-export function executeInstruction(instr, registers, memory) {
+export function executeInstruction(instr, registers, memory, options = {}) {
   const { op, args } = instr;
   const changed = [];
   let details = "";
+  let flags = null;
+  let alu = null;
+  let memoryAccess = null;
 
   switch (op) {
     case "LOAD": {
       const [rd, addr] = args;
-      const value = memory[addr.value & 0xff] ?? 0;
+      const value = options.memoryValue ?? memory[addr.value] ?? 0;
+      registers.MAR = addr.value;
+      registers.MDR = value & 0xff;
       registers[rd.name] = value & 0xff;
-      changed.push(rd.name);
+      changed.push("MAR", "MDR", rd.name);
+      memoryAccess = { type: "read", address: addr.value, value: value & 0xff };
       details = `${rd.name} ← M[${addr.value}] (${value})`;
       break;
     }
     case "STORE": {
       const [rd, addr] = args;
       const value = registers[rd.name] & 0xff;
-      memory[addr.value & 0xff] = value;
-      changed.push(`M[${addr.value}]`);
+      registers.MAR = addr.value;
+      registers.MDR = value;
+      memory[addr.value] = value;
+      changed.push("MAR", "MDR", `M[${addr.value}]`);
+      memoryAccess = { type: "write", address: addr.value, value };
       details = `M[${addr.value}] ← ${rd.name} (${value})`;
       break;
     }
@@ -115,8 +133,10 @@ export function executeInstruction(instr, registers, memory) {
     case "NOT": {
       const [rd, rs] = args;
       const source = rs ? readValue(rs, registers) : registers[rd.name];
-      const result = (~source) & 0xff;
+      alu = aluCompute("NOT", source, 0);
+      const result = alu.result;
       registers[rd.name] = result;
+      flags = alu.flags;
       changed.push(rd.name);
       details = `${rd.name} ← NOT ${source} (${result})`;
       break;
@@ -140,20 +160,27 @@ export function executeInstruction(instr, registers, memory) {
         a = readValue(rest[0], registers);
         b = readValue(rest[1], registers);
       }
-      const result = bitwise(op, a, b);
+      alu = aluCompute(op, a, b);
+      const result = alu.result;
       registers[rd.name] = result;
+      flags = alu.flags;
       changed.push(rd.name);
       details = `${rd.name} ← ${a} ${op} ${b} = ${result}`;
       break;
     }
   }
 
-  return { details, changed };
+  return { details, changed, flags, alu, memoryAccess };
 }
 
-export function executeCycles(op) {
-  if (op === "LOAD" || op === "STORE") return 2;
-  return 1;
+// Compact 32-bit teaching encoding: opcode | operand 1 | operand 2 | operand 3.
+// Registers use 0..3 and immediates/addresses use their low eight bits.
+export function encodeInstruction(instruction) {
+  const bytes = instruction.args.slice(0, 3).map(operand =>
+    operand.type === "reg" ? Number(operand.name.slice(1)) : operand.value & 0xff
+  );
+  while (bytes.length < 3) bytes.push(0);
+  return (((OPCODES[instruction.op] << 24) | (bytes[0] << 16) | (bytes[1] << 8) | bytes[2]) >>> 0);
 }
 
 const OP_WORDS = { ADD: "plus", SUB: "minus", AND: "AND", OR: "OR", XOR: "XOR" };

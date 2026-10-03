@@ -6,24 +6,6 @@ import ActionBar from "../components/ActionBar";
 const OPCODES = { ADD: "0000", SUB: "0001", AND: "0010", OR: "0011", XOR: "0100", NOT: "0101" };
 const SYMBOLS = { ADD: "+", SUB: "-", AND: "&", OR: "|", XOR: "^", NOT: "~" };
 
-function computeFlags(op, a, b, result) {
-  const zero = result.decimal === 0;
-  let carry = false;
-  if (op === "ADD") carry = result.raw > 255;
-  else if (op === "SUB") carry = a < b;
-
-  const signed = n => (n > 127 ? n - 256 : n);
-  let overflow = false;
-  if (op === "ADD") {
-    const sum = signed(a) + signed(b);
-    overflow = sum > 127 || sum < -128;
-  } else if (op === "SUB") {
-    const diff = signed(a) - signed(b);
-    overflow = diff > 127 || diff < -128;
-  }
-  return { zero, carry, overflow };
-}
-
 function BitRow({ bits, revealed, tone }) {
   return (
     <span className="bit-row">
@@ -46,7 +28,7 @@ export default function AluSimulatorPage() {
   const bClamped = isUnary ? 0 : Math.min(255, Math.max(0, Number(b) || 0));
 
   const result = useMemo(() => aluCompute(op, aClamped, bClamped), [op, aClamped, bClamped]);
-  const flags = useMemo(() => computeFlags(op, aClamped, bClamped, result), [op, aClamped, bClamped, result]);
+  const flags = result.flags;
   const aBin = (aClamped & 0xff).toString(2).padStart(8, "0");
   const bBin = (bClamped & 0xff).toString(2).padStart(8, "0");
 
@@ -109,7 +91,7 @@ export default function AluSimulatorPage() {
             <p className="alu-value">{result.decimal}</p>
             <p className="alu-sub">0x{result.hex}</p>
             <p className="alu-sub mono-cell">{result.binary}</p>
-            {flags.overflow && <p className="warn-text small-note">⚠ Overflow beyond 8 bits (raw = {result.raw})</p>}
+            {flags.overflow && <p className="warn-text small-note">⚠ Signed 8-bit overflow (raw = {result.raw})</p>}
           </div>
         </div>
 

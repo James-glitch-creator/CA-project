@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSimulator } from "../context/SimulatorContext";
 import { api } from "../api/client";
-import { SAMPLE_PROGRAM, formatInstrAddr } from "../engine/constants";
+import { SAMPLE_PROGRAM, formatInstrAddr, formatAddress } from "../engine/constants";
 import { describeInstruction } from "../engine/instructions";
 import { deriveDatapath } from "../engine/datapath";
 import StatusBanner from "../components/StatusBanner";
@@ -193,7 +193,7 @@ export default function InstructionExecutionPage() {
         <div className="panel">
           <div className="panel-title">
             <p className="console-label">Current Instruction ({phase.toUpperCase()} Phase)</p>
-            <span className="pc-readout">PC<br /><b>{formatInstrAddr(registers.PC)}</b></span>
+            <span className="pc-readout">PC<br /><b>{formatAddress(registers.PC)}</b></span>
           </div>
           <h2 className="mono-cell current-instr-title">{currentInstr?.raw ?? "-"}</h2>
           <p className="muted-cell">{currentInstr ? describeInstruction(currentInstr) : status.message}</p>
@@ -202,12 +202,13 @@ export default function InstructionExecutionPage() {
         <div className="instr-mini-grid">
           <div className="panel console-panel">
             <p className="console-label small">Control Unit</p>
-            <p className="mono-line">IR: {typeof registers.IR === "string" ? registers.IR : "-"}</p>
+            <p className="mono-line">IR: {cpu.hasFetched ? formatAddress(registers.IR) : "-"}</p>
             <div className="arch-signals mini-signals">
               <span>MemRead: <b className={control.MemRead ? "on" : ""}>{control.MemRead}</b></span>
               <span>RegWrite: <b className={control.RegWrite ? "on" : ""}>{control.RegWrite}</b></span>
               <span>ALUSrc: <b className={control.ALUSrc ? "on" : ""}>{control.ALUSrc}</b></span>
               <span>MemWrite: <b className={control.MemWrite ? "on" : ""}>{control.MemWrite}</b></span>
+              <span>Flags: <b>Z{Number(cpu.flags.zero)} C{Number(cpu.flags.carry)} V{Number(cpu.flags.overflow)} N{Number(cpu.flags.negative)}</b></span>
             </div>
           </div>
 

@@ -17,7 +17,10 @@ export function aluCompute(op, a, b) {
   }
 
   const result = raw & 0xff;
-  const overflow = op === "ADD" ? raw > 255 : op === "SUB" ? raw < 0 : false;
+  const signed = value => (value & 0x80 ? value - 0x100 : value);
+  const carry = op === "ADD" ? raw > 0xff : op === "SUB" ? x < y : false;
+  const signedRaw = op === "ADD" ? signed(x) + signed(y) : op === "SUB" ? signed(x) - signed(y) : 0;
+  const overflow = (op === "ADD" || op === "SUB") && (signedRaw > 127 || signedRaw < -128);
 
   return {
     raw,
@@ -25,6 +28,7 @@ export function aluCompute(op, a, b) {
     decimal: result,
     binary: result.toString(2).padStart(8, "0"),
     hex: result.toString(16).toUpperCase().padStart(2, "0"),
-    overflow
+    overflow,
+    flags: { zero: result === 0, carry, overflow, negative: Boolean(result & 0x80) }
   };
 }
